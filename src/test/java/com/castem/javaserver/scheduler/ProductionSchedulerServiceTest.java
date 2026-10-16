@@ -221,4 +221,82 @@ class ProductionSchedulerServiceTest {
         // Lot 2 Wax was shifted forward to 2026-11-11 because capacity was exceeded!
         assertEquals(userStartDate.plusDays(1), lot2.processes().get(0).scheduledStartDate());
     }
+
+    @Test
+    @DisplayName("TEST 4: Fabrication Separation - Slip start/end reflects base item, while fabStart/fabEnd reflects fabrication")
+    void testFabricationSeparationAndDates() {
+        LocalDate userStartDate = LocalDate.of(2026, 10, 21); // Wednesday
+
+        List<RouteStepDto> itemRoutes = List.of(
+            new RouteStepDto(1, 101, "Wax Injection", BigDecimal.valueOf(60), "Minutes", null, null, null, null, "Batch", false, BigDecimal.valueOf(5000), null, null, null),
+            new RouteStepDto(2, 102, "Casting", BigDecimal.valueOf(60), "Minutes", null, null, null, null, "Batch", false, BigDecimal.valueOf(5000), null, null, null)
+        );
+
+        List<RouteStepDto> fabRoutes = List.of(
+            new RouteStepDto(3, 201, "Machining", BigDecimal.valueOf(60), "Minutes", null, null, null, null, "Batch", false, BigDecimal.valueOf(5000), null, null, null)
+        );
+
+        // 3 lots of 20 pcs each with maxConcurrentLots = 1
+        ScheduleRequest request = new ScheduleRequest(
+            "SO-FAB-TEST-001",
+            40,
+            "10-44444-100",
+            BigDecimal.valueOf(60),
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            BigDecimal.valueOf(20), // 3 lots
+            BigDecimal.valueOf(0.2),
+            BigDecimal.valueOf(0.2),
+            LocalDate.of(2026, 12, 20),
+            userStartDate,
+            1, // 1 lot per day
+            true, // includeSaturday = true
+            BigDecimal.valueOf(14.0),
+            List.of(),
+            List.of(),
+            itemRoutes,
+            true, // hasFabrication
+            "100",
+            fabRoutes
+        );
+
+        ScheduleResponse res = schedulerService.schedule(request);
+
+        assertEquals(3, res.slips().size());
+
+        ScheduledSlipDto lot1 = res.slips().get(0);
+        ScheduledSlipDto lot2 = res.slips().get(1);
+        ScheduledSlipDto lot3 = res.slips().get(2);
+
+        // Base item route has 2 steps:
+        // Lot 1: Oct 21 -> Oct 22
+        // Lot 2: Oct 22 -> Oct 23
+        // Lot 3: Oct 23 -> Oct 24
+        assertEquals(LocalDate.of(2026, 10, 21), lot1.startDate());
+        assertEquals(LocalDate.of(2026, 10, 22), lot1.endDate());
+        assertEquals(BigDecimal.valueOf(2), lot1.totalDays());
+
+        assertEquals(LocalDate.of(2026, 10, 22), lot2.startDate());
+        assertEquals(LocalDate.of(2026, 10, 23), lot2.endDate());
+        assertEquals(BigDecimal.valueOf(2), lot2.totalDays());
+
+        assertEquals(LocalDate.of(2026, 10, 23), lot3.startDate());
+        assertEquals(LocalDate.of(2026, 10, 24), lot3.endDate());
+        assertEquals(BigDecimal.valueOf(2), lot3.totalDays());
+
+        // Max base end date is Oct 24 (Saturday). Sunday Oct 25 is skipped. Next working day is Monday Oct 26.
+        // Fabrication starts Oct 26 for all lots
+        assertEquals(LocalDate.of(2026, 10, 26), lot1.fabStartDate());
+        assertEquals(LocalDate.of(2026, 10, 26), lot1.fabEndDate());
+        assertEquals(BigDecimal.valueOf(1), lot1.fabTotalDays());
+
+        assertEquals(LocalDate.of(2026, 10, 26), lot2.fabStartDate());
+        assertEquals(LocalDate.of(2026, 10, 26), lot2.fabEndDate());
+
+        assertEquals(LocalDate.of(2026, 10, 26), lot3.fabStartDate());
+        assertEquals(LocalDate.of(2026, 10, 26), lot3.fabEndDate());
+
+        // Overall order schedule ends on Oct 26 (end of fabrication)
+        assertEquals(LocalDate.of(2026, 10, 26), res.scheduledEndDate());
+    }
 }

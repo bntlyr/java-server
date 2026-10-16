@@ -374,27 +374,34 @@ public class ProductionSchedulerService {
             combinedProcs.addAll(baseList);
             combinedProcs.addAll(fabList);
 
-            LocalDate lotStart = !combinedProcs.isEmpty() ? combinedProcs.get(0).scheduledStartDate() : targetEndDate;
-            LocalDate lotEnd = !combinedProcs.isEmpty() ? combinedProcs.get(combinedProcs.size() - 1).scheduledEndDate() : targetEndDate;
-            BigDecimal lotDays = BigDecimal.valueOf(countWorkingDays(lotStart, lotEnd, holidaySet, includeSat));
+            LocalDate lotBaseStart = !baseList.isEmpty()
+                ? baseList.get(0).scheduledStartDate()
+                : (!combinedProcs.isEmpty() ? combinedProcs.get(0).scheduledStartDate() : targetEndDate);
+            LocalDate lotBaseEnd = !baseList.isEmpty()
+                ? baseList.get(baseList.size() - 1).scheduledEndDate()
+                : (!combinedProcs.isEmpty() ? combinedProcs.get(combinedProcs.size() - 1).scheduledEndDate() : targetEndDate);
+            BigDecimal lotBaseDays = BigDecimal.valueOf(countWorkingDays(lotBaseStart, lotBaseEnd, holidaySet, includeSat));
 
-            LocalDate fStart = hasFab ? lotFabStartDates.get(lotIdx) : null;
-            LocalDate fEnd = hasFab ? lotFabEndDates.get(lotIdx) : null;
+            LocalDate fStart = hasFab && !fabList.isEmpty() ? lotFabStartDates.get(lotIdx) : null;
+            LocalDate fEnd = hasFab && !fabList.isEmpty() ? lotFabEndDates.get(lotIdx) : null;
             BigDecimal fDays = (fStart != null && fEnd != null)
                 ? BigDecimal.valueOf(countWorkingDays(fStart, fEnd, holidaySet, includeSat))
                 : BigDecimal.ZERO;
 
-            if (overallStart == null || lotStart.isBefore(overallStart)) overallStart = lotStart;
-            if (overallEnd == null || lotEnd.isAfter(overallEnd)) overallEnd = lotEnd;
+            LocalDate slipOverallStart = lotBaseStart;
+            LocalDate slipOverallEnd = (fEnd != null) ? fEnd : lotBaseEnd;
+
+            if (overallStart == null || slipOverallStart.isBefore(overallStart)) overallStart = slipOverallStart;
+            if (overallEnd == null || slipOverallEnd.isAfter(overallEnd)) overallEnd = slipOverallEnd;
 
             slips.set(lotIdx, new ScheduledSlipDto(
                 lotNo,
                 request.orderNo(),
                 "ORIGINAL",
                 lotQty,
-                lotStart,
-                lotEnd,
-                lotDays,
+                lotBaseStart,
+                lotBaseEnd,
+                lotBaseDays,
                 fStart,
                 fEnd,
                 fDays,
@@ -572,27 +579,34 @@ public class ProductionSchedulerService {
             combinedProcs.addAll(baseList);
             combinedProcs.addAll(fabList);
 
-            LocalDate lotStart = !combinedProcs.isEmpty() ? combinedProcs.get(0).scheduledStartDate() : startFromDate;
-            LocalDate lotEnd = !combinedProcs.isEmpty() ? combinedProcs.get(combinedProcs.size() - 1).scheduledEndDate() : startFromDate;
-            BigDecimal lotDays = BigDecimal.valueOf(countWorkingDays(lotStart, lotEnd, holidaySet, includeSat));
+            LocalDate lotBaseStart = !baseList.isEmpty()
+                ? baseList.get(0).scheduledStartDate()
+                : (!combinedProcs.isEmpty() ? combinedProcs.get(0).scheduledStartDate() : startFromDate);
+            LocalDate lotBaseEnd = !baseList.isEmpty()
+                ? baseList.get(baseList.size() - 1).scheduledEndDate()
+                : (!combinedProcs.isEmpty() ? combinedProcs.get(combinedProcs.size() - 1).scheduledEndDate() : startFromDate);
+            BigDecimal lotBaseDays = BigDecimal.valueOf(countWorkingDays(lotBaseStart, lotBaseEnd, holidaySet, includeSat));
 
-            LocalDate fStart = hasFab ? lotFabStartDates.get(lotIdx) : null;
-            LocalDate fEnd = hasFab ? lotFabEndDates.get(lotIdx) : null;
+            LocalDate fStart = hasFab && !fabList.isEmpty() ? lotFabStartDates.get(lotIdx) : null;
+            LocalDate fEnd = hasFab && !fabList.isEmpty() ? lotFabEndDates.get(lotIdx) : null;
             BigDecimal fDays = (fStart != null && fEnd != null)
                 ? BigDecimal.valueOf(countWorkingDays(fStart, fEnd, holidaySet, includeSat))
                 : BigDecimal.ZERO;
 
-            if (overallStart == null || lotStart.isBefore(overallStart)) overallStart = lotStart;
-            if (overallEnd == null || lotEnd.isAfter(overallEnd)) overallEnd = lotEnd;
+            LocalDate slipOverallStart = lotBaseStart;
+            LocalDate slipOverallEnd = (fEnd != null) ? fEnd : lotBaseEnd;
+
+            if (overallStart == null || slipOverallStart.isBefore(overallStart)) overallStart = slipOverallStart;
+            if (overallEnd == null || slipOverallEnd.isAfter(overallEnd)) overallEnd = slipOverallEnd;
 
             slips.add(new ScheduledSlipDto(
                 lotNo,
                 request.orderNo(),
                 "ORIGINAL",
                 lotQty,
-                lotStart,
-                lotEnd,
-                lotDays,
+                lotBaseStart,
+                lotBaseEnd,
+                lotBaseDays,
                 fStart,
                 fEnd,
                 fDays,
